@@ -923,19 +923,14 @@
       card.classList.remove('drag-over');
       if (!dragSrcId || dragSrcId === todo.id) return;
 
-      const visible = getFiltered();
-      const srcIdx  = visible.findIndex(t => t.id === dragSrcId);
-      const dstIdx  = visible.findIndex(t => t.id === todo.id);
+      const srcIdx = todos.findIndex(t => t.id === dragSrcId);
+      const dstIdx = todos.findIndex(t => t.id === todo.id);
       if (srcIdx === -1 || dstIdx === -1) return;
 
-      const [moved] = visible.splice(srcIdx, 1);
-      visible.splice(dstIdx, 0, moved);
-      visible.forEach((t, i) => { t.order = i; });
+      const [moved] = todos.splice(srcIdx, 1);
+      todos.splice(dstIdx, 0, moved);
+      todos.forEach((t, i) => { t.order = i; });
 
-      const hidden = todos.filter(t => !visible.find(v => v.id === t.id));
-      hidden.forEach((t, i) => { t.order = visible.length + i; });
-
-      todos = [...visible, ...hidden];
       save();
       render();
     });
@@ -977,11 +972,11 @@
 
   // ── 추가 ───────────────────────────────────────────────
   function addTodo(title, category, priority, assignee) {
-    const maxOrder = todos.length ? Math.max(...todos.map(t => t.order)) + 1 : 0;
-    todos.push({
+    todos.forEach(t => { t.order += 1; });
+    todos.unshift({
       id: crypto.randomUUID(),
       title, category, priority, assignee: assignee || '말랭',
-      done: false, order: maxOrder,
+      done: false, order: 0,
       createdAt: new Date().toISOString()
     });
     save();
