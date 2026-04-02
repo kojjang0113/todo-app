@@ -823,14 +823,19 @@
     const detailInput = card.querySelector('.detail-input');
     detailInput.addEventListener('click', e => e.stopPropagation());
 
-    // 메모 변경 시 debounce 500ms 후 Firebase 저장
+    // 메모 변경 시 debounce 1000ms 후 save()만 호출 (render 금지 — 포커스 끊김 방지)
     let detailTimer = null;
     detailInput.addEventListener('input', e => {
+      todo.detail = e.target.value;
       clearTimeout(detailTimer);
-      detailTimer = setTimeout(() => {
-        todo.detail = e.target.value;
-        save();
-      }, 500);
+      detailTimer = setTimeout(() => { save(); }, 1000);
+    });
+
+    // 포커스 잃을 때 즉시 저장 (render 호출 없이)
+    detailInput.addEventListener('blur', () => {
+      clearTimeout(detailTimer);
+      todo.detail = detailInput.value;
+      save();
     });
 
     // 드래그
