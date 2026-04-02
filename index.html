@@ -645,7 +645,7 @@
   let currentFilter = '전체';
   let dragSrcId = null;
   let dragSrcOrder = null;
-  let isDragging = false;
+  let dragLockUntil = 0;
 
   // ── Firebase 저장 ──────────────────────────────────────
   // todos 배열을 id 키 오브젝트로 변환 후 Firebase에 기록
@@ -659,7 +659,7 @@
   // 다른 기기에서 변경 시 자동으로 render() 호출됨
   function initRealtimeSync() {
     todosRef.on('value', snapshot => {
-      if (isDragging) return; // 드래그 중엔 Firebase 업데이트 무시
+      if (Date.now() < dragLockUntil) return; // 드래그 잠금 중엔 Firebase 업데이트 무시
       const data = snapshot.val();
       todos = data ? Object.values(data) : [];
       resetStaleDone(); // 날짜 넘어간 완료 항목 초기화
@@ -914,7 +914,7 @@
         e.preventDefault();
         return;
       }
-      isDragging = true;
+      dragLockUntil = Date.now() + 60000; // 드래그 시작 시 잠금
       dragSrcId = todo.id;
       dragSrcOrder = todo.order;
       setTimeout(() => card.classList.add('dragging'), 0);
@@ -924,11 +924,11 @@
 
     // 드래그 끝
     card.addEventListener('dragend', () => {
-      isDragging = false;
       card.classList.remove('dragging');
       document.querySelectorAll('.todo-card').forEach(c => c.classList.remove('drag-over'));
       dragSrcId = null;
       dragSrcOrder = null;
+      // 잠금 해제는 drop 이벤트 안에서 save() + render() 후 3초 뒤에 함
     });
 
     // 드래그 오버
@@ -953,33 +953,38 @@
       e.stopPropagation();
       card.classList.remove('drag-over');
 
-      if (!dragSrcId || dragSrcId === todo.id || todo.done) return;
+      if (!dragSrcId || dragSrcId === todo.id || todo.done) {
+        dragLockUntil = 0;
+        return;
+      }
 
-      // 미완료 항목만 order 순으로 정렬
       const undone = todos
         .filter(t => !t.done)
         .sort((a, b) => a.order - b.order);
 
-      // 완료 항목은 order 순으로 정렬해 뒤에 배치
       const done = todos
         .filter(t => t.done)
         .sort((a, b) => a.order - b.order);
 
       const srcIdx = undone.findIndex(t => t.id === dragSrcId);
       const dstIdx = undone.findIndex(t => t.id === todo.id);
-      if (srcIdx === -1 || dstIdx === -1) return;
 
-      // 미완료 항목 내에서만 순서 교체
+      if (srcIdx === -1 || dstIdx === -1) {
+        dragLockUntil = 0;
+        return;
+      }
+
       const [moved] = undone.splice(srcIdx, 1);
       undone.splice(dstIdx, 0, moved);
-
-      // order 재부여
       undone.forEach((t, i) => { t.order = i; });
       done.forEach((t, i) => { t.order = undone.length + i; });
-
       todos = [...undone, ...done];
+
       save();
       render();
+
+      // save() 후 Firebase 리스너가 발동해도 3초간 무시
+      dragLockUntil = Date.now() + 3000;
     });
 
     return card;
