@@ -181,6 +181,7 @@
     flex-shrink: 0;
     line-height: 1;
     touch-action: none;
+    pointer-events: none; /* 핸들 자체가 이벤트 흡수 못하게 */
   }
   .drag-handle:active { cursor: grabbing; }
   .todo-card.done .drag-handle { cursor: default; color: #e5e7eb; }
@@ -643,6 +644,7 @@
   let todos = [];
   let currentFilter = '전체';
   let dragSrcId = null;
+  let dragSrcOrder = null;
 
   // ── Firebase 저장 ──────────────────────────────────────
   // todos 배열을 id 키 오브젝트로 변환 후 Firebase에 기록
@@ -901,35 +903,57 @@
       save();
     });
 
-    // 드래그
+    // 드래그 시작
     card.addEventListener('dragstart', e => {
-      if (todo.done || card.classList.contains('editing')) { e.preventDefault(); return; }
+      if (todo.done || card.classList.contains('editing')) {
+        e.preventDefault();
+        return;
+      }
       dragSrcId = todo.id;
-      card.classList.add('dragging');
+      dragSrcOrder = todo.order;
+      setTimeout(() => card.classList.add('dragging'), 0);
       e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', todo.id);
     });
+
+    // 드래그 끝
     card.addEventListener('dragend', () => {
       card.classList.remove('dragging');
       document.querySelectorAll('.todo-card').forEach(c => c.classList.remove('drag-over'));
+      dragSrcId = null;
+      dragSrcOrder = null;
     });
+
+    // 드래그 오버
     card.addEventListener('dragover', e => {
       e.preventDefault();
+      e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
-      if (todo.id !== dragSrcId && !todo.done) card.classList.add('drag-over');
+      if (dragSrcId && todo.id !== dragSrcId && !todo.done) {
+        card.classList.add('drag-over');
+      }
     });
-    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+
+    // 드래그 리브
+    card.addEventListener('dragleave', e => {
+      e.stopPropagation();
+      card.classList.remove('drag-over');
+    });
+
+    // 드롭
     card.addEventListener('drop', e => {
       e.preventDefault();
+      e.stopPropagation();
       card.classList.remove('drag-over');
-      if (!dragSrcId || dragSrcId === todo.id) return;
-      if (todo.done) return; // 완료 항목 위로는 드롭 불가
 
-      // 미완료 항목만 order 순으로 추출
+      if (!dragSrcId || dragSrcId === todo.id || todo.done) return;
+
+      // 미완료 항목만 order 순으로 정렬
       const undone = todos
         .filter(t => !t.done)
         .sort((a, b) => a.order - b.order);
 
-      // 완료 항목은 order 순으로 따로 추출
+      // 완료 항목은 order 순으로 정렬해 뒤에 배치
       const done = todos
         .filter(t => t.done)
         .sort((a, b) => a.order - b.order);
@@ -938,11 +962,11 @@
       const dstIdx = undone.findIndex(t => t.id === todo.id);
       if (srcIdx === -1 || dstIdx === -1) return;
 
-      // 미완료 항목 내에서만 순서 변경
+      // 미완료 항목 내에서만 순서 교체
       const [moved] = undone.splice(srcIdx, 1);
       undone.splice(dstIdx, 0, moved);
 
-      // undone에 0~N order 재부여, done은 그 뒤에 이어서 부여
+      // order 재부여
       undone.forEach((t, i) => { t.order = i; });
       done.forEach((t, i) => { t.order = undone.length + i; });
 
