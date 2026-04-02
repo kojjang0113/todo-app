@@ -645,6 +645,7 @@
   let currentFilter = '전체';
   let dragSrcId = null;
   let dragSrcOrder = null;
+  let isDragging = false;
 
   // ── Firebase 저장 ──────────────────────────────────────
   // todos 배열을 id 키 오브젝트로 변환 후 Firebase에 기록
@@ -658,6 +659,7 @@
   // 다른 기기에서 변경 시 자동으로 render() 호출됨
   function initRealtimeSync() {
     todosRef.on('value', snapshot => {
+      if (isDragging) return; // 드래그 중엔 Firebase 업데이트 무시
       const data = snapshot.val();
       todos = data ? Object.values(data) : [];
       resetStaleDone(); // 날짜 넘어간 완료 항목 초기화
@@ -861,11 +863,14 @@
       todo.done = e.target.checked;
       if (todo.done) {
         todo.doneDate = todayStr();
-        // 완료 항목을 목록 맨 아래로 이동
-        const maxOrder = todos.length ? Math.max(...todos.map(t => t.order)) : 0;
+        const maxOrder = Math.max(...todos.map(t => t.order));
         todo.order = maxOrder + 1;
       } else {
         delete todo.doneDate;
+        // 미완료 항목 중 가장 위로 이동
+        const undone = todos.filter(t => !t.done && t.id !== todo.id);
+        const minOrder = undone.length ? Math.min(...undone.map(t => t.order)) : 1;
+        todo.order = minOrder - 1;
       }
       save();
       if (todos.length > 0 && todos.every(t => t.done)) showCelebration();
@@ -909,6 +914,7 @@
         e.preventDefault();
         return;
       }
+      isDragging = true;
       dragSrcId = todo.id;
       dragSrcOrder = todo.order;
       setTimeout(() => card.classList.add('dragging'), 0);
@@ -918,6 +924,7 @@
 
     // 드래그 끝
     card.addEventListener('dragend', () => {
+      isDragging = false;
       card.classList.remove('dragging');
       document.querySelectorAll('.todo-card').forEach(c => c.classList.remove('drag-over'));
       dragSrcId = null;
