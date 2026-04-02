@@ -915,22 +915,38 @@
     card.addEventListener('dragover', e => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      if (todo.id !== dragSrcId) card.classList.add('drag-over');
+      if (todo.id !== dragSrcId && !todo.done) card.classList.add('drag-over');
     });
     card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
     card.addEventListener('drop', e => {
       e.preventDefault();
       card.classList.remove('drag-over');
       if (!dragSrcId || dragSrcId === todo.id) return;
+      if (todo.done) return; // 완료 항목 위로는 드롭 불가
 
-      const srcIdx = todos.findIndex(t => t.id === dragSrcId);
-      const dstIdx = todos.findIndex(t => t.id === todo.id);
+      // 미완료 항목만 order 순으로 추출
+      const undone = todos
+        .filter(t => !t.done)
+        .sort((a, b) => a.order - b.order);
+
+      // 완료 항목은 order 순으로 따로 추출
+      const done = todos
+        .filter(t => t.done)
+        .sort((a, b) => a.order - b.order);
+
+      const srcIdx = undone.findIndex(t => t.id === dragSrcId);
+      const dstIdx = undone.findIndex(t => t.id === todo.id);
       if (srcIdx === -1 || dstIdx === -1) return;
 
-      const [moved] = todos.splice(srcIdx, 1);
-      todos.splice(dstIdx, 0, moved);
-      todos.forEach((t, i) => { t.order = i; });
+      // 미완료 항목 내에서만 순서 변경
+      const [moved] = undone.splice(srcIdx, 1);
+      undone.splice(dstIdx, 0, moved);
 
+      // undone에 0~N order 재부여, done은 그 뒤에 이어서 부여
+      undone.forEach((t, i) => { t.order = i; });
+      done.forEach((t, i) => { t.order = undone.length + i; });
+
+      todos = [...undone, ...done];
       save();
       render();
     });
