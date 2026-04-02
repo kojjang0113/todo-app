@@ -309,6 +309,68 @@
     padding: 16px;
   }
   .modal-backdrop.open { display: flex; }
+
+  /* ── 축하 팝업 ─────────────────────────────────────────── */
+  .celebration-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .celebration-backdrop.open { display: flex; }
+
+  .celebration-modal {
+    background: #fff;
+    border-radius: 20px;
+    padding: 40px 48px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    animation: celebPop 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes celebPop {
+    from { opacity: 0; transform: scale(0.7); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .celebration-emoji {
+    font-size: 3.5rem;
+    margin-bottom: 16px;
+    display: inline-block;
+    animation: shake 0.6s ease 0.2s;
+  }
+  @keyframes shake {
+    0%,100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-15deg); }
+    75%      { transform: rotate(15deg); }
+  }
+
+  .celebration-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .celebration-msg {
+    font-size: 1rem;
+    color: var(--subtext);
+    margin-bottom: 28px;
+  }
+  .celebration-close {
+    padding: 10px 32px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .celebration-close:hover { background: var(--accent-hover); }
+
   .modal {
     background: var(--panel);
     border: 1px solid var(--border);
@@ -804,6 +866,7 @@
         delete todo.doneDate;
       }
       save();
+      if (todos.length > 0 && todos.every(t => t.done)) showCelebration();
       render();
     });
 
@@ -974,6 +1037,30 @@
   // ── 초기화 ─────────────────────────────────────────────
   renderDate();
   initRealtimeSync(); // Firebase 리스너 시작 → 자동으로 데이터 로드 후 render()
+</script>
+
+<div class="celebration-backdrop" id="celebration-backdrop">
+  <div class="celebration-modal">
+    <div class="celebration-emoji">🎉</div>
+    <div class="celebration-title">축하합니다!</div>
+    <div class="celebration-msg">수고했어 오늘도~</div>
+    <button class="celebration-close" id="celebration-close">확인</button>
+  </div>
+</div>
+
+<script>
+  // ── 축하 팝업 ───────────────────────────────────────────────
+  function showCelebration() {
+    const today = new Date().toISOString().slice(0, 10);
+    const key = 'celebrated_' + today;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    document.getElementById('celebration-backdrop').classList.add('open');
+  }
+
+  document.getElementById('celebration-close').addEventListener('click', () => {
+    document.getElementById('celebration-backdrop').classList.remove('open');
+  });
 </script>
 </body>
 </html>
