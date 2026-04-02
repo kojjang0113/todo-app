@@ -425,6 +425,27 @@
   .assignee-badge.탬   { background: #e0f2fe; color: #0369a1; }
   .assignee-badge.하진 { background: #fef9c3; color: #a16207; }
 
+  /* ── 한 줄 메모 입력 필드 ────────────────────────── */
+  .detail-input {
+    width: 100%;
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    background: transparent;
+    font-size: 0.78rem;
+    color: var(--subtext);
+    padding: 3px 0;
+    margin-top: 5px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  .detail-input:focus {
+    border-bottom-color: var(--accent);
+    color: var(--text);
+  }
+  .detail-input::placeholder { color: #d1d5db; }
+  .detail-input[readonly] { color: #d1d5db; cursor: default; }
+
   /* ── 동기화 상태 표시 ──────────────────────────── */
   .sync-dot {
     display: inline-block;
@@ -760,6 +781,12 @@
           <span class="cat-tag">${escHtml(todo.category)}</span>
           <span class="assignee-badge ${escHtml(todo.assignee||'말랭')}">${escHtml(todo.assignee||'말랭')}</span>
         </div>
+        <input class="detail-input"
+               type="text"
+               placeholder="메모를 입력하세요..."
+               maxlength="100"
+               value="${escHtml(todo.detail || '')}"
+               ${todo.done ? 'readonly' : ''}>
       </div>
       <span class="priority-badge ${priorityClass(todo.priority)}">${escHtml(todo.priority)}</span>
       <button class="btn-delete" title="삭제">✕</button>
@@ -790,6 +817,20 @@
     // 인라인 편집 (제목/카테고리 영역 클릭)
     card.querySelector('.todo-info').addEventListener('click', () => {
       openInlineEdit(card, todo);
+    });
+
+    // 메모 입력 — 클릭 시 인라인 편집 모드 진입 방지
+    const detailInput = card.querySelector('.detail-input');
+    detailInput.addEventListener('click', e => e.stopPropagation());
+
+    // 메모 변경 시 debounce 500ms 후 Firebase 저장
+    let detailTimer = null;
+    detailInput.addEventListener('input', e => {
+      clearTimeout(detailTimer);
+      detailTimer = setTimeout(() => {
+        todo.detail = e.target.value;
+        save();
+      }, 500);
     });
 
     // 드래그
